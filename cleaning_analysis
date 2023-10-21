@@ -1,0 +1,84 @@
+SELECT *
+FROM social_buzz.dbo.Reactions
+
+SELECT *
+FROM social_buzz.dbo.ReactionTypes
+
+--We have to convert the Score column to integer so that we can use the sum function
+UPDATE social_buzz.dbo.ReactionTypes
+SET Score = CAST (Score AS INT)
+
+--We then have to join the three tables using the inner join because we want to get only values that have matching values in the other two tables
+
+SELECT a.Content_id as content_id, a.Type as content_type, a.category as content_category, b.Type as reaction_type, C.score as reaction_score
+FROM social_buzz.dbo.Content a
+JOIN social_buzz.dbo.Reactions b ON a.content_id = b.content_id
+JOIN social_buzz.dbo.ReactionTypes c ON b.Type = c.Type
+
+--Next, we create a new table, the reaction score is the only column with the integer data type because it contains numerical values
+CREATE TABLE popular_contents 
+(Content_ID VARCHAR (250),
+ content_type VARCHAR (50),
+  content_category VARCHAR (50),
+  reaction_type VARCHAR (50),
+  reaction_score INT
+  )
+
+
+select *
+from popular_contents
+
+--we then insert our Inner join query into the new table
+
+INSERT INTO popular_contents
+SELECT a.Content_id as content_id, a.Type as content_type, a.category as content_category, b.Type as reaction_type, C.score as reaction_score
+FROM social_buzz.dbo.Content a
+JOIN social_buzz.dbo.Reactions b ON a.content_id = b.content_id
+JOIN social_buzz.dbo.ReactionTypes c ON b.Type = c.Type
+
+----Before checking for the top five categories, let us see all the categories we have in this table
+select distinct content_category
+from popular_contents
+
+----We found out that there were categories with quotation marks ("), we have to clean this first as this can affect our results
+
+select content_category, REPLACE (content_category, '"', '' )
+from popular_contents
+
+--Now, we have to update the cleaned cells on our table
+update popular_contents
+set content_category = REPLACE (content_category, '"', '' )
+
+
+
+--Finally, we can now rank our categories with the query below
+SELECT content_category, TotalReactionScore, popularity_rank
+FROM (
+    SELECT content_category, SUM(reaction_score) AS TotalReactionScore,
+           RANK() OVER (ORDER BY SUM(reaction_score) DESC) AS popularity_rank
+    FROM Popular_contents
+    GROUP BY content_category
+) AS Subquery
+WHERE popularity_rank <= 5
+
+----Create another table to show the ranking
+
+CREATE TABLE PopularityRank
+(content_category VARCHAR (50),
+TotalReactionScore INT,
+popularity_rank VARCHAR (50)
+)
+
+INSERT INTO PopularityRank
+
+  SELECT content_category, TotalReactionScore, popularity_rank
+FROM (
+    SELECT content_category, SUM(reaction_score) AS TotalReactionScore,
+           RANK() OVER (ORDER BY SUM(reaction_score) DESC) AS popularity_rank
+    FROM Popular_contents
+    GROUP BY content_category
+) AS Subquery
+WHERE popularity_rank <= 5
+
+select *
+from PopularityRank
